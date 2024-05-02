@@ -75,7 +75,7 @@ def just_the_model(model_name):
 	model_data = esm.pretrained.load_hub_workaround(url)
 	return esm.pretrained.load_model_and_alphabet_core(model_name, model_data, None)
 
-def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp):
+def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp=True):
 
 	#### Load ESM-2 model
 	model, alphabet = just_the_model(ESM_model_name)
