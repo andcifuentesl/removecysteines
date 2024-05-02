@@ -207,10 +207,10 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		ppm = pps[where_mut]
 
 
-		ident = np.array(['Mutants',]*(pps.size))
-		ident[where_wt] = 'WT'
-		ident[where_mut] = 'Optimized'
-		ident += ['WT','Optimized']
+		ident = ['Mutants',]*(pps.size)
+		ident[where_wt[0][0]] = 'WT'
+		ident[where_mut[0][0]] = 'Optimized'
+		ident=np.array(ident)
 		palette= {'Mutants':'lightgray','WT':'tab:blue','Optimized':'tab:red'}
 		sizes = {'Mutants':2,'WT':10,'Optimized':10}
 		sns.stripplot(x=pps, orient="y",zorder=-2,hue=ident,palette = palette,jitter=.48,size=5,alpha=.9)
