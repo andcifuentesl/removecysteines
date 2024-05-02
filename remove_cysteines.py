@@ -75,7 +75,7 @@ def just_the_model(model_name):
 	model_data = esm.pretrained.load_hub_workaround(url)
 	return esm.pretrained.load_model_and_alphabet_core(model_name, model_data, None)
 
-def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True):
+def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp):
 
 	#### Load ESM-2 model
 	model, alphabet = just_the_model(ESM_model_name)
@@ -128,6 +128,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 
 	#### Step 2. Scan all point changes to maximize perplexity
 	cls = {}
+	lnls = {}
 	for iter in range(n_rounds):
 		## get starting point
 		reps,logits = embed_sequences([('mut',mut_sequence),]*3,model,batch_converter,device)
@@ -148,6 +149,11 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 				for i in range(len(data)):
 					if not data[i][1] in cls:
 						cls[data[i][1]] = reps[i,0].copy()
+			if show_pp:
+				for i in range(len(data)):
+					if not data[i][1] in lnls:
+						lnls[data[i][1]] = pp[i]
+
 		t1 = time.time()
 
 		if 	best[0] != -1:
@@ -190,6 +196,34 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		plt.legend()
 		plt.show()
 
+	if show_pp:
+		pps = np.array([lnls[k] for k in lnls.keys()])
+		import matplotlib.pyplot as plt
+		import seaborn as sns
+		
+		where_wt = np.nonzero(list[lnls.keys()]==wt_sequence)
+		where_mut = np.nonzero(list[lnls.keys()]==mut_sequence)] 
+		ppw = pps[where_wt]
+		ppm = pps[where_mut]
+
+
+		ident = np.array(['Mutants',]*(pps.size))
+		ident[where_wt] = 'WT'
+		ident[where_mut] = 'Optimized'
+		ident += ['WT','Optimized']
+		palette= {'Mutants':'lightgray','WT':'tab:blue','Optimized':'tab:red'}
+		sizes = {'Mutants':2,'WT':10,'Optimized':10}
+		sns.stripplot(x=pps, orient="y",zorder=-2,hue=ident,palette = palette,jitter=.48,size=5,alpha=.9)
+		sns.kdeplot(y,color='k',lw=2,)
+		plt.xlabel('Pseudoperplexity')
+		plt.axvline(x=y[-2],color='tab:blue',zorder=-5,lw=2)
+		plt.axvline(x=y[-1],color='tab:red',zorder=-5,lw=2)
+		plt.legend()
+		plt.ylim(0,.5)
+		plt.show()
+
+
+
 
 
 if __name__ == "__main__":
@@ -208,6 +242,7 @@ if __name__ == "__main__":
 	parser.add_argument("--model", choices=ESM_models, default=ESM_models[3], help='Which ESM2 model to use?')
 	parser.add_argument("--device", choices=devices, default=devices[0], help="Which compute device?")
 	parser.add_argument("--pca", action="store_true", help="Show embedding PCA?")
+	parser.add_argument("--pp", action="store_true", help="Show pseudoperlexities?")
 		
 	args = parser.parse_args()
-	main(args.sequence,args.model,args.device,args.n_rounds,args.pca)
+	main(args.sequence,args.model,args.device,args.n_rounds,args.pca,args.pp)
