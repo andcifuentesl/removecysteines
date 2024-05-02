@@ -202,7 +202,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		import seaborn as sns
 		
 		where_wt = np.nonzero(list[lnls.keys()]==wt_sequence)
-		where_mut = np.nonzero(list[lnls.keys()]==mut_sequence)] 
+		where_mut = np.nonzero(list[lnls.keys()]==mut_sequence)
 		ppw = pps[where_wt]
 		ppm = pps[where_mut]
 
