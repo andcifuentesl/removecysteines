@@ -226,7 +226,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 					ww.append(w[ind])
 					break
 		ww = np.array(ww)
-		plt.plot(ww[:,0],ww[:,1],color='k',label='Opt. Path',zorder=-2,alpha=.8)
+		plt.plot(ww[:,0],ww[:,1],color='k',label='Opt. Path',zorder=2,alpha=.8)
 
 		plt.xlabel('PCA1')
 		plt.ylabel('PCA2')
