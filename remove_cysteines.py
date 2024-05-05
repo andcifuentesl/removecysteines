@@ -75,6 +75,17 @@ def just_the_model(model_name):
 	model_data = esm.pretrained.load_hub_workaround(url)
 	return esm.pretrained.load_model_and_alphabet_core(model_name, model_data, None)
 
+def diff_str(s1,s2):
+	'''1>2'''
+	diffs = []
+	for i in range(len(s1)):
+		if s1[i] != s2[i]:
+			diffs.append('%s%d%s'%(s1[i],i+1,s2[i]))
+	if len(diffs) == 0:
+		return 'WT'
+	return ' '.join(diffs)
+
+
 def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp=True):
 
 	#### Load ESM-2 model
@@ -94,10 +105,16 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 
 	#### Reporting Statistics
 	print('WT Sequence: %s'%(wt_sequence))
+	## start record keeping
+	cls = {}
+	lnls = {}
+	sequence_order = [wt_sequence]
 
 	reps,logits = embed_sequences([('wt',wt_sequence),]*3,model,batch_converter,device)
 	wt_pp = calc_pseudoperplexity(logits[0],wt_sequence)
 	print('WT Perplexity: %.16f'%(wt_pp))
+	cls[wt_sequence] = reps[0,0]
+	lnls[wt_sequence] = wt_pp
 
 	print('Length: %d'%(len(wt_sequence)))
 
@@ -120,15 +137,17 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		orig,ind,repl = mutation
 		mut_sequence = mut_sequence[:ind] + repl + mut_sequence[ind+1:]
 
-	reps,logits = embed_sequences([('mut',mut_sequence),]*3,model,batch_converter,device)
+	reps,logits = embed_sequences([('mut',mut_sequence),]*3,model,batch_converter,device) ## note you need to run at least 3 for reproducibility ('batch' issues)
 	mut_pp = calc_pseudoperplexity(logits[0],mut_sequence)
+	cls[mut_sequence] = reps[0,0]
+	lnls[mut_sequence] = mut_pp
 	print('1. Initial MUT perplexity: %.8f'%(mut_pp))
 	for mutation in mutations:
 		print('\tC%d%s'%(mutation[1]+1,mutation[2]))
+	sequence_order.append(mut_sequence)
 
 	#### Step 2. Scan all point changes to maximize perplexity
-	cls = {}
-	lnls = {}
+	## optimization rounds
 	for iter in range(n_rounds):
 		## get starting point
 		reps,logits = embed_sequences([('mut',mut_sequence),]*3,model,batch_converter,device)
@@ -144,21 +163,16 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 			if pp.max() > best[1]:
 				if letters[pp.argmax()] != mut_sequence[index]: ## sometimes the comparison fails
 					best = [index,pp.max(),pp.argmax()]
-
-			if show_pca:
-				for i in range(len(data)):
-					if not data[i][1] in cls:
-						cls[data[i][1]] = reps[i,0].copy()
-			if show_pp:
-				for i in range(len(data)):
-					if not data[i][1] in lnls:
-						lnls[data[i][1]] = pp[i]
-
+			for i in range(len(data)):
+				if not data[i][1] in cls:
+					cls[data[i][1]] = reps[i,0].copy()
+					lnls[data[i][1]] = pp[i]
 		t1 = time.time()
 
 		if 	best[0] != -1:
 			print('2.%d Polish, MUT perplexity %.8f, %.3f sec, C%d%s'%(iter+1,best[1],t1-t0,best[0]+1,letters[best[2]]))
 			mut_sequence = mut_sequence[:best[0]] + letters[best[2]] + mut_sequence[best[0]+1:]
+			sequence_order.append(mut_sequence)
 		else:
 			print('2.%d Polish, MUT perplexity %.8f, %.3f sec, <no better change>'%(iter+1,best[1],t1-t0))
 			break
@@ -173,23 +187,46 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 	for index in indices:
 		print('\t%s%d%s'%(wt_sequence[index],index+1,mut_sequence[index]))
 
+	#### output debug data
+	if False:
+		out = ''
+		out += 'wt ' + ', ,' + wt_sequence + '\n'
+		out += 'mut' + ', ,' + mut_sequence + '\n'
+		for key in cls.keys():
+			line = str(diff_str(wt_sequence,key)) + ',' + str(lnls[key]) + ',' + str(key)
+			out += line + '\n'
+		with open('temp.csv','w') as f:
+			f.write(out)
+
 
 	#### Step 4. Analysis
 	if show_pca:
 		q = np.array([cls[k] for k in cls.keys()])
+		
 		import matplotlib.pyplot as plt
 		from sklearn.decomposition import PCA
 		pca = PCA(n_components=2)
 		w = pca.fit_transform(q)
-		plt.plot(w[:,0],w[:,1],'o',color='gray',label='Point mutants')
 
-		reps,logits = embed_sequences([('wt',wt_sequence),]*3,model,batch_converter,device)
-		ww = pca.transform(reps[0,0][None,:])[0]
-		plt.plot(ww[0],ww[1],'o',color='tab:blue',label='WT')
+		keep = np.array([not key in [wt_sequence,mut_sequence] for key in cls.keys()])
+		plt.plot(w[keep,0],w[keep,1],'o',color='gray',label='Mutants')
 
-		reps,logits = embed_sequences([('mut',mut_sequence),]*3,model,batch_converter,device)
-		ww = pca.transform(reps[0,0][None,:])[0]
-		plt.plot(ww[0],ww[1],'o',color='tab:red',label='Final MUT')
+		keep = np.array([key in [wt_sequence,] for key in cls.keys()])
+		plt.plot(w[keep,0],w[keep,1],'o',color='tab:blue',label='WT')
+
+		keep = np.array([key in [mut_sequence,] for key in cls.keys()])
+		plt.plot(w[keep,0],w[keep,1],'o',color='tab:red',label='Optimized')
+
+		ww = []
+		keylist = [key for key in cls.keys()]
+		keylist = list(cls.keys())
+		for soi in sequence_order:
+			for ind in range(len(keylist)):
+				if keylist[ind] == soi:
+					ww.append(w[ind])
+					break
+		ww = np.array(ww)
+		plt.plot(ww[:,0],ww[:,1],color='k',label='Opt. Path',zorder=-2,alpha=.8)
 
 		plt.xlabel('PCA1')
 		plt.ylabel('PCA2')
@@ -199,27 +236,48 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 	if show_pp:
 		pps = np.array([lnls[k] for k in lnls.keys()])
 		import matplotlib.pyplot as plt
-		import seaborn as sns
+		from scipy.stats import gaussian_kde
 		
-		where_wt = np.nonzero(list[lnls.keys()]==wt_sequence)
-		where_mut = np.nonzero(list[lnls.keys()]==mut_sequence)
-		ppw = pps[where_wt]
-		ppm = pps[where_mut]
+		ident = ['',]*(pps.size)
+		keylist = list(lnls.keys())
 
+		for i in range(len(keylist)):
+			if keylist[i] == wt_sequence:
+				ident[i] = 'WT'
+				ppw = pps[i]
+			elif keylist[i] == mut_sequence:
+				ident[i] = 'Optimized'
+				ppm = pps[i]
+			else:
+				ident[i] = 'Mutants'
 
-		ident = ['Mutants',]*(pps.size)
-		ident[where_wt[0][0]] = 'WT'
-		ident[where_mut[0][0]] = 'Optimized'
 		ident=np.array(ident)
-		palette= {'Mutants':'lightgray','WT':'tab:blue','Optimized':'tab:red'}
-		sizes = {'Mutants':2,'WT':10,'Optimized':10}
-		sns.stripplot(x=pps, orient="y",zorder=-2,hue=ident,palette = palette,jitter=.48,size=5,alpha=.9)
-		sns.kdeplot(y,color='k',lw=2,)
-		plt.xlabel('Pseudoperplexity')
-		plt.axvline(x=y[-2],color='tab:blue',zorder=-5,lw=2)
-		plt.axvline(x=y[-1],color='tab:red',zorder=-5,lw=2)
-		plt.legend()
-		plt.ylim(0,.5)
+
+		kde = gaussian_kde(pps)
+		xmin = pps.min()
+		xmax = pps.max()
+		xdelta = xmax-xmin
+		factor = .25
+		x = np.linspace(xmin - xdelta*factor,xmax+xdelta*factor,1000)
+		ykde = kde(x)
+		pkde = kde(pps)
+		yrvs = np.random.rand(pps.size)*pkde
+
+		fig,ax=plt.subplots(1)
+
+		for target,color in zip(['Mutants','WT','Optimized'],['gray','tab:blue','tab:red']):
+			keep = [identi in [target] for identi in ident]
+			ax.plot(pps[keep],yrvs[keep],'o',color=color,alpha=.8,label=target)
+
+		ax.plot(x,ykde,color='k',lw=1.5,)
+		ax.set_xlim(x.min(),x.max())
+		ax.set_ylabel('Density')
+		ax.set_xlabel('Pseudoperplexity')
+
+		ax.axvline(x=ppw,color='tab:blue',zorder=-5,lw=2)
+		ax.axvline(x=ppm,color='tab:red',zorder=-5,lw=2)
+		ax.legend()
+	
 		plt.show()
 
 
