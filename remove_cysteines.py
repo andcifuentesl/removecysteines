@@ -126,6 +126,16 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 
 	print('Cys locations:',*[index+1 for index in range(len(wt_sequence)) if wt_sequence[index] == 'C'])
 
+	#### AA control 
+	ala_sequence = ''.join(list(wt_sequence)) ## make a deep copy
+	indices = np.array([index for index in range(len(ala_sequence)) if ala_sequence[index] == 'C'])
+	for ind in indices:
+		ala_sequence = ala_sequence[:ind] + 'A' + ala_sequence[ind+1:]
+	reps,logits = embed_sequences([('ala',ala_sequence),]*3,model,batch_converter,device) ## note you need to run at least 3 for reproducibility ('batch' issues)
+	ala_pp = calc_pseudoperplexity(logits[0],ala_sequence)
+	cls[ala_sequence] = reps[0,0]
+	lnls[ala_sequence] = ala_pp
+
 	##################### Design
 	print('\n---------- Optimization ----------')
 	mut_sequence = ''.join(list(wt_sequence)) ## make a deep copy
@@ -208,11 +218,14 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		pca = PCA(n_components=2)
 		w = pca.fit_transform(q)
 
-		keep = np.array([not key in [wt_sequence,mut_sequence] for key in cls.keys()])
+		keep = np.array([not key in [wt_sequence,mut_sequence,ala_sequence] for key in cls.keys()])
 		plt.plot(w[keep,0],w[keep,1],'o',color='gray',label='Mutants')
 
 		keep = np.array([key in [wt_sequence,] for key in cls.keys()])
 		plt.plot(w[keep,0],w[keep,1],'o',color='tab:blue',label='WT')
+
+		keep = np.array([key in [ala_sequence,] for key in cls.keys()])
+		plt.plot(w[keep,0],w[keep,1],'o',color='tab:orange',label='Alanine Control')
 
 		keep = np.array([key in [mut_sequence,] for key in cls.keys()])
 		plt.plot(w[keep,0],w[keep,1],'o',color='tab:red',label='Optimized')
@@ -248,6 +261,9 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 			elif keylist[i] == mut_sequence:
 				ident[i] = 'Optimized'
 				ppm = pps[i]
+			elif keylist[i] == ala_sequence:
+				ident[i] = 'Alanine Control'
+				ppa = pps[i]
 			else:
 				ident[i] = 'Mutants'
 
@@ -265,7 +281,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 
 		fig,ax=plt.subplots(1)
 
-		for target,color in zip(['Mutants','WT','Optimized'],['gray','tab:blue','tab:red']):
+		for target,color in zip(['Mutants','WT','Alanine Control','Optimized'],['gray','tab:blue','tab:orange','tab:red']):
 			keep = [identi in [target] for identi in ident]
 			ax.plot(pps[keep],yrvs[keep],'o',color=color,alpha=.8,label=target)
 
@@ -275,6 +291,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		ax.set_xlabel('Pseudoperplexity')
 
 		ax.axvline(x=ppw,color='tab:blue',zorder=-5,lw=2)
+		ax.axvline(x=ppa,color='tab:orange',zorder=-5,lw=2)
 		ax.axvline(x=ppm,color='tab:red',zorder=-5,lw=2)
 		ax.legend()
 	
