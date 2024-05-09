@@ -321,7 +321,7 @@ if __name__ == "__main__":
 		devices.append('mps')
 	devices.append('cpu')
 
-	parser = argparse.ArgumentParser(description=r"Remove Cysteines (v0.1.4). CKT Lab -- http://ckinzthompson.github.io")
+	parser = argparse.ArgumentParser(description=r"Remove Cysteines (v0.1.5). CKT Lab -- http://ckinzthompson.github.io")
 	parser.add_argument("sequence", type=str, help="WT protein sequence to alter")
 	parser.add_argument("--n_rounds", type=int, default=20, help="Maximum Number of Polishing Rounds")
 	parser.add_argument("--model", choices=ESM_models, default=ESM_models[3], help='Which ESM2 model to use?')

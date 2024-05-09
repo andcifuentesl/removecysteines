@@ -18,10 +18,10 @@ Steps:
 * Run from the terminal:
 
 ```bash
-> python remove_cysteines.py
-usage: remove_cysteines.py [-h] [--n_rounds N_ROUNDS] [--model MODEL] [--device DEVICE] [--pca] sequence
+> python remove_cysteines.py --help
+usage: remove_cysteines.py [-h] [--n_rounds N_ROUNDS] [--model {esm2_t6_8M_UR50D,esm2_t12_35M_UR50D,esm2_t30_150M_UR50D,esm2_t33_650M_UR50D,esm2_t36_3B_UR50D,esm2_t48_15B_UR50D}] [--device {mps,cpu}] [--pca] [--pp] [--output_prefix OUTPUT_PREFIX] sequence
 
-Remove Cysteines (v0.1.4). CKT Lab -- http://ckinzthompson.github.io
+Remove Cysteines (v0.1.5). CKT Lab -- http://ckinzthompson.github.io
 
 positional arguments:
   sequence              WT protein sequence to alter
@@ -31,9 +31,15 @@ optional arguments:
   --n_rounds N_ROUNDS   Maximum Number of Polishing Rounds
   --model {esm2_t6_8M_UR50D,esm2_t12_35M_UR50D,esm2_t30_150M_UR50D,esm2_t33_650M_UR50D,esm2_t36_3B_UR50D,esm2_t48_15B_UR50D}
                         Which ESM2 model to use?
-  --device {cuda,mps,cpu}    Which compute device?
+  --device {mps,cpu}    Which compute device?
   --pca                 Show embedding PCA?
+  --pp                  Show pseudoperlexities?
+  --output_prefix OUTPUT_PREFIX
+                        Choose a prefix to save the images
 ```
 
-## Example
-![](https://github.com/ckinzthompson/removecysteines/assets/17210418/373f905b-8bb3-40cd-9615-dc55ee903143)
+## Examples
+#### PCA of the ESM latent space
+![](docs/mRuby3_pca_esm2_t33_650M_UR50D.png)
+#### Distribution of pseudoperplexities
+![](docs/mRuby3_pp_esm2_t33_650M_UR50D.png)
