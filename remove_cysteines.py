@@ -86,7 +86,7 @@ def diff_str(s1,s2):
 	return ' '.join(diffs)
 
 
-def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp=True):
+def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp=True,output_prefix=''):
 
 	#### Load ESM-2 model
 	model, alphabet = just_the_model(ESM_model_name)
@@ -112,7 +112,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 
 	reps,logits = embed_sequences([('wt',wt_sequence),]*3,model,batch_converter,device)
 	wt_pp = calc_pseudoperplexity(logits[0],wt_sequence)
-	print('WT Perplexity: %.16f'%(wt_pp))
+	print('WT Pseudoerplexity: %.16f'%(wt_pp))
 	cls[wt_sequence] = reps[0,0]
 	lnls[wt_sequence] = wt_pp
 
@@ -151,7 +151,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 	mut_pp = calc_pseudoperplexity(logits[0],mut_sequence)
 	cls[mut_sequence] = reps[0,0]
 	lnls[mut_sequence] = mut_pp
-	print('1. Initial MUT perplexity: %.8f'%(mut_pp))
+	print('1. Initial MUT pseudoperplexity: %.8f'%(mut_pp))
 	for mutation in mutations:
 		print('\tC%d%s'%(mutation[1]+1,mutation[2]))
 	sequence_order.append(mut_sequence)
@@ -180,11 +180,11 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		t1 = time.time()
 
 		if 	best[0] != -1:
-			print('2.%d Polish, MUT perplexity %.8f, %.3f sec, C%d%s'%(iter+1,best[1],t1-t0,best[0]+1,letters[best[2]]))
+			print('2.%d Polish, MUT pseudoperplexity %.8f, %.3f sec, C%d%s'%(iter+1,best[1],t1-t0,best[0]+1,letters[best[2]]))
 			mut_sequence = mut_sequence[:best[0]] + letters[best[2]] + mut_sequence[best[0]+1:]
 			sequence_order.append(mut_sequence)
 		else:
-			print('2.%d Polish, MUT perplexity %.8f, %.3f sec, <no better change>'%(iter+1,best[1],t1-t0))
+			print('2.%d Polish, MUT pseudoperplexity %.8f, %.3f sec, <no better change>'%(iter+1,best[1],t1-t0))
 			break
 
 	#### Step 3. Finish up
@@ -192,7 +192,7 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 	print('MUT Sequence: %s'%(mut_sequence))
 	reps,logits = embed_sequences([('mut',mut_sequence),]*3,model,batch_converter,device)
 	mut_pp = calc_pseudoperplexity(logits[0],mut_sequence)
-	print('MUT Perplexity: %.8f'%(mut_pp))
+	print('MUT Pseudoperplexity: %.8f'%(mut_pp))
 	print('Mutations:')
 	for index in indices:
 		print('\t%s%d%s'%(wt_sequence[index],index+1,mut_sequence[index]))
@@ -218,17 +218,19 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		pca = PCA(n_components=2)
 		w = pca.fit_transform(q)
 
+		fig,ax = plt.subplots(1)
+
 		keep = np.array([not key in [wt_sequence,mut_sequence,ala_sequence] for key in cls.keys()])
-		plt.plot(w[keep,0],w[keep,1],'o',color='gray',label='Mutants')
+		ax.plot(w[keep,0],w[keep,1],'o',color='gray',label='Mutants')
 
 		keep = np.array([key in [wt_sequence,] for key in cls.keys()])
-		plt.plot(w[keep,0],w[keep,1],'o',color='tab:blue',label='WT')
+		ax.plot(w[keep,0],w[keep,1],'o',color='tab:blue',label='WT')
 
 		keep = np.array([key in [ala_sequence,] for key in cls.keys()])
-		plt.plot(w[keep,0],w[keep,1],'o',color='tab:orange',label='Alanine Control')
+		ax.plot(w[keep,0],w[keep,1],'o',color='tab:orange',label='Alanine Control')
 
 		keep = np.array([key in [mut_sequence,] for key in cls.keys()])
-		plt.plot(w[keep,0],w[keep,1],'o',color='tab:red',label='Optimized')
+		ax.plot(w[keep,0],w[keep,1],'o',color='tab:red',label='Optimized')
 
 		ww = []
 		keylist = [key for key in cls.keys()]
@@ -239,11 +241,17 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 					ww.append(w[ind])
 					break
 		ww = np.array(ww)
-		plt.plot(ww[:,0],ww[:,1],color='k',label='Opt. Path',zorder=2,alpha=.8)
+		ax.plot(ww[:,0],ww[:,1],color='k',label='Opt. Path',zorder=2,alpha=.8)
 
-		plt.xlabel('PCA1')
-		plt.ylabel('PCA2')
-		plt.legend()
+		ax.set_xlabel('PCA1')
+		ax.set_ylabel('PCA2')
+		ax.legend()
+
+		ax.set_title('%s (%s)'%(output_prefix,ESM_model_name))
+
+		for ext in ['pdf','png']:
+			fn = '%s_pca_%s.%s'%(output_prefix,ESM_model_name,ext)
+			fig.savefig(fn)
 		plt.show()
 
 	if show_pp:
@@ -294,11 +302,13 @@ def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_roun
 		ax.axvline(x=ppa,color='tab:orange',zorder=-5,lw=2)
 		ax.axvline(x=ppm,color='tab:red',zorder=-5,lw=2)
 		ax.legend()
-	
+
+		ax.set_title('%s (%s)'%(output_prefix,ESM_model_name))
+
+		for ext in ['pdf','png']:
+			fn = '%s_pp_%s.%s'%(output_prefix,ESM_model_name,ext)
+			fig.savefig(fn)
 		plt.show()
-
-
-
 
 
 if __name__ == "__main__":
@@ -318,6 +328,7 @@ if __name__ == "__main__":
 	parser.add_argument("--device", choices=devices, default=devices[0], help="Which compute device?")
 	parser.add_argument("--pca", action="store_true", help="Show embedding PCA?")
 	parser.add_argument("--pp", action="store_true", help="Show pseudoperlexities?")
+	parser.add_argument("--output_prefix", type=str, default='', help="Choose a prefix to save the images")
 		
 	args = parser.parse_args()
-	main(args.sequence,args.model,args.device,args.n_rounds,args.pca,args.pp)
+	main(args.sequence,args.model,args.device,args.n_rounds,args.pca,args.pp,args.output_prefix)
