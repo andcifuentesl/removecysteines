@@ -21,7 +21,7 @@ Steps:
 > python remove_cysteines.py --help
 usage: remove_cysteines.py [-h] [--n_rounds N_ROUNDS] [--model {esm2_t6_8M_UR50D,esm2_t12_35M_UR50D,esm2_t30_150M_UR50D,esm2_t33_650M_UR50D,esm2_t36_3B_UR50D,esm2_t48_15B_UR50D}] [--device {mps,cpu}] [--pca] [--pp] [--output_prefix OUTPUT_PREFIX] sequence
 
-Remove Cysteines (v0.1.5). CKT Lab -- http://ckinzthompson.github.io
+Remove Cysteines (v0.1.6). CKT Lab -- http://ckinzthompson.github.io
 
 positional arguments:
   sequence              WT protein sequence to alter

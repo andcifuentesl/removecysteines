@@ -1,11 +1,13 @@
-import torch
-import esm
-import numpy as np
-from scipy.special import softmax
-import time
+import os
 import sys
+import esm
+import time
+import torch
 import argparse
 import warnings
+import numpy as np
+from scipy.special import softmax
+
 warnings.filterwarnings("ignore", category=UserWarning, module="esm")
 
 letters = ['L', 'A', 'G', 'V', 'S', 'E', 'R', 'T', 'I', 'D', 'P', 'K', 'Q', 'N', 'F', 'Y', 'M', 'H', 'W', 'C']
@@ -70,7 +72,12 @@ def calc_given_best(sequence,model,batch_converter,indices,device):
 		out.append([sequence[index],index,letters[p.argmax()]])
 	return out
 
-def just_the_model(model_name):
+def just_the_model(model_name,model_directory=None):
+	if not model_directory is None:
+		if not os.path.exists(model_directory):
+			os.mkdir(model_directory)
+		if os.path.exists(model_directory): ## a second check to make sure it got made...
+			torch.hub.set_dir(model_directory)
 	url = f"https://dl.fbaipublicfiles.com/fair-esm/models/{model_name}.pt"
 	model_data = esm.pretrained.load_hub_workaround(url)
 	return esm.pretrained.load_model_and_alphabet_core(model_name, model_data, None)
@@ -86,10 +93,10 @@ def diff_str(s1,s2):
 	return ' '.join(diffs)
 
 
-def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp=True,output_prefix=''):
+def main(wt_sequence, ESM_model_name='esm2_t33_650M_UR50D', device='cpu', n_rounds=20, show_pca=True,show_pp=True,output_prefix='',model_directory=None):
 
 	#### Load ESM-2 model
-	model, alphabet = just_the_model(ESM_model_name)
+	model, alphabet = just_the_model(ESM_model_name,model_directory)
 	print('ESM: %s'%(ESM_model_name))
 
 	#### Find GPU type
@@ -321,7 +328,7 @@ if __name__ == "__main__":
 		devices.append('mps')
 	devices.append('cpu')
 
-	parser = argparse.ArgumentParser(description=r"Remove Cysteines (v0.1.5). CKT Lab -- http://ckinzthompson.github.io")
+	parser = argparse.ArgumentParser(description=r"Remove Cysteines (v0.1.6). CKT Lab -- http://ckinzthompson.github.io")
 	parser.add_argument("sequence", type=str, help="WT protein sequence to alter")
 	parser.add_argument("--n_rounds", type=int, default=20, help="Maximum Number of Polishing Rounds")
 	parser.add_argument("--model", choices=ESM_models, default=ESM_models[3], help='Which ESM2 model to use?')
@@ -329,6 +336,7 @@ if __name__ == "__main__":
 	parser.add_argument("--pca", action="store_true", help="Show embedding PCA?")
 	parser.add_argument("--pp", action="store_true", help="Show pseudoperlexities?")
 	parser.add_argument("--output_prefix", type=str, default='', help="Choose a prefix to save the images")
+	parser.add_argument("--model_directory", default = None, help="Where to save/load the ESM model files")
 		
 	args = parser.parse_args()
-	main(args.sequence,args.model,args.device,args.n_rounds,args.pca,args.pp,args.output_prefix)
+	main(args.sequence,args.model,args.device,args.n_rounds,args.pca,args.pp,args.output_prefix,args.model_directory)
