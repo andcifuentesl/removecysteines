@@ -68,7 +68,7 @@ if __name__ == "__main__":
 		version=find_meta("version"),
 		author=find_meta("author"),
 		keywords=KEYWORDS,
-		long_description=read("readme.md"),
+		long_description=read("README.md"),
 		long_description_content_type='text/markdown',
 		packages=setuptools.find_packages(where="."),
 		package_dir={"": "."},
