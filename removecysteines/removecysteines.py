@@ -60,7 +60,7 @@ def fit_pll(x,y,init_a=.01,init_k=100000.,init_n=.5,maxiters=10):
 		out = minimize(_minfxn,x0=out.x,args=(x,y),method='Nelder-Mead')
 	return out.success,out.x
 
-def _optimize_maskless_scoring(lnp_wt,lnp_mask):
+def _optimize_maskless_scoring(lnp_wt,lnp_mask,no_plots=False):
 	#### Does the actual fitting
 
 	success,theta = fit_pll(lnp_wt,lnp_mask) ## trying to predict lnp_mask
@@ -76,6 +76,8 @@ def _optimize_maskless_scoring(lnp_wt,lnp_mask):
 	xx = np.linspace(xmin,0,1000)
 	yy = pll_fxn(xx,a,k,n)
 
+	if no_plots:
+		return theta,None,None
 	fig,ax = plt.subplots(1,figsize=(8,6))
 	
 	ax.plot(lnp_wt,lnp_mask,'o',color='tab:blue',alpha=.5)
@@ -161,7 +163,7 @@ def step0_prepare(seq, ESM_model_name, model_directory, device):
 
 	return seq,model,alphabet,indices
 
-def step1_calibratemaskless(seqs,model,alphabet,device):
+def step1_calibratemaskless(seqs,model,alphabet,device,no_plots=False):
 	#### fits PLL from wt marginal data. Seqs is a list [seq1,seq2,seq2]
 	## Masks out each position in a sequence: [(0, mask 0), (1, mask 1),..., (len(seq), wt)] one at a time
 	## Gets all of the embeddings and then does the fitting....
@@ -209,7 +211,7 @@ def step1_calibratemaskless(seqs,model,alphabet,device):
 		lnp_mask_all.append(lnp_mask)
 
 	#### fit the mapping function
-	theta,fig,ax = _optimize_maskless_scoring(np.concatenate(lnp_wt_all),np.concatenate(lnp_mask_all))
+	theta,fig,ax = _optimize_maskless_scoring(np.concatenate(lnp_wt_all),np.concatenate(lnp_mask_all),no_plots)
 
 	#### Output information
 	print('----------')
@@ -440,7 +442,7 @@ def main(input_sequence,ESM_model_name="esm2_t6_8M_UR50D",device='cpu',n_rounds=
 	seq,model,alphabet,indices = step0_prepare(input_sequence,ESM_model_name,model_directory,device)
 
 	##### Step 1: Map PLL for maskless scoring
-	theta,fig,ax = step1_calibratemaskless([seq,],model,alphabet,device)
+	theta,fig,ax = step1_calibratemaskless([seq,],model,alphabet,device,no_plots)
 	if not no_plots:
 		savefig(fig,output_prefix,'map',ESM_model_name)
 		plt.show()
