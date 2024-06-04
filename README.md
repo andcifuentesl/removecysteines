@@ -29,14 +29,17 @@ python -m removecysteines <seq>
 ## Examples
 
 ### Mapping WT conditionals probabilities to PLL values
-![](docs/recQ_map_esm2_t6_8M_UR50D.png | width=4in)
+<!-- ![](docs/recQ_map_esm2_t6_8M_UR50D.png) -->
+<img src="docs/recQ_map_esm2_t6_8M_UR50D.png" width="4in" height="3in">
 
 ### PCA of the region of ESM2 latent space around the variants
-![](docs/recQ_PCA_esm2_t6_8M_UR50D.png | width=4in)
+<!-- ![](docs/recQ_PCA_esm2_t6_8M_UR50D.png) -->
+<img src="docs/recQ_PCA_esm2_t6_8M_UR50D.png" width="4in" height="3in">
 
 ### Distribution of Pseudoperplexities
 *Note: Lower is better*
-![](docs/recQ_PPPL_esm2_t6_8M_UR50D.png | width=4in)
+<!-- ![](docs/recQ_PPPL_esm2_t6_8M_UR50D.png) -->
+<img src="docs/recQ_PPPL_esm2_t6_8M_UR50D.png" width="4in" height="3in">
 
 
 ## Help 
