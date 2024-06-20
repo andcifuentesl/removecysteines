@@ -316,8 +316,8 @@ def step3_optimize(seq,indices,model,alphabet,device,theta,history,sequence_orde
 		t1 = time.time()
 
 		if 	best[0] != -1:
-			print('3.%d Polish: C%d%s, %.3f sec\nMut: %s\nPseudoperplexity: %.8f'%(iter+1,best[0]+1,letters[best[2]],t1-t0,mut_seq,best[1]))
 			mut_seq = mut_seq[:best[0]] + letters[best[2]] + mut_seq[best[0]+1:]
+			print('3.%d Polish: C%d%s, %.3f sec\nMut: %s\nPseudoperplexity: %.8f'%(iter+1,best[0]+1,letters[best[2]],t1-t0,mut_seq,best[1]))
 			sequence_order.append(mut_seq)
 			print('----------')
 		else: ## No changes were made
